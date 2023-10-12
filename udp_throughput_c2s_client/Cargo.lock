@@ -178,18 +178,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "network_benchmark_client"
-version = "0.1.0"
-dependencies = [
- "argh",
- "bytesize",
- "color-eyre",
- "humantime",
- "rand",
- "rand_xoshiro",
-]
-
-[[package]]
 name = "object"
 version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -375,6 +363,18 @@ dependencies = [
  "sharded-slab",
  "thread_local",
  "tracing-core",
+]
+
+[[package]]
+name = "udp_benchmark_client"
+version = "0.1.0"
+dependencies = [
+ "argh",
+ "bytesize",
+ "color-eyre",
+ "humantime",
+ "rand",
+ "rand_xoshiro",
 ]
 
 [[package]]
