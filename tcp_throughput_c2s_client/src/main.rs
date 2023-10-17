@@ -1,12 +1,13 @@
 use std::{
     io::Write,
-    net::TcpStream,
+    net::ToSocketAddrs,
     time::{Duration, Instant},
 };
 
 use argh::FromArgs;
-use color_eyre::Result;
+use color_eyre::{eyre::eyre, Result};
 use rand::{RngCore, SeedableRng};
+use socket2::{Domain, Protocol, Socket, Type};
 
 fn parse_duration(s: &str) -> Result<Duration, String> {
     humantime::parse_duration(s).map_err(|err| err.to_string())
@@ -43,6 +44,13 @@ fn main() -> Result<()> {
 
     let mut rng = rand_xoshiro::Xoroshiro128Plus::from_entropy();
 
+    let address = args
+        .address
+        .to_socket_addrs()?
+        .next()
+        .ok_or_else(|| eyre!("Could not resolve address"))?
+        .into();
+
     println!("Sample | Overall Throughput | Pure Throughput");
     println!("-------|--------------------|----------------");
     for i in 0..args.sample_size {
@@ -50,16 +58,27 @@ fn main() -> Result<()> {
         rng.fill_bytes(&mut write_buf);
 
         let time_connect = Instant::now();
-        let mut stream = TcpStream::connect(&args.address)?;
-        stream.set_nodelay(true)?;
+        let mut socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
+        socket.connect(&address)?;
+        socket.set_nonblocking(true)?;
         let time_send = Instant::now();
         let mut bytes_transmitted = 0;
         while time_send.elapsed() < args.duration {
-            bytes_transmitted += stream.write(&write_buf)? as u64;
+            let mut i = 0;
+            while i < 10 {
+                match socket.write(&write_buf) {
+                    Ok(n) => {
+                        bytes_transmitted += n as u64;
+                        i += 1;
+                    }
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(err) => return Err(err.into()),
+                };
+            }
         }
         let time_send_end = Instant::now();
 
-        drop(stream);
+        drop(socket);
         let time_close = Instant::now();
 
         let overall_duration = time_close.duration_since(time_connect);
@@ -83,6 +102,8 @@ fn main() -> Result<()> {
 }
 
 fn format_throughput(elapsed: Duration, bytes: u64) -> String {
-    let bytes_per_second = ((bytes as f64) / elapsed.as_secs_f64()) as u64;
-    format!("{}/s", bytesize::to_string(bytes_per_second, true))
+    let bits_per_second = (((bytes * 8) as f64) / elapsed.as_secs_f64()) as u64;
+    let mut s = bytesize::to_string(bits_per_second, false);
+    s.pop();
+    format!("{}b/s", s)
 }
