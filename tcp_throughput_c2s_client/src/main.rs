@@ -71,7 +71,9 @@ fn main() -> Result<()> {
                         bytes_transmitted += n as u64;
                         i += 1;
                     }
-                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::hint::spin_loop();
+                    }
                     Err(err) => return Err(err.into()),
                 };
             }
