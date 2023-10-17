@@ -1,9 +1,11 @@
 use std::{
+    collections::VecDeque,
     net::UdpSocket,
     time::{Duration, Instant},
 };
 
 use argh::FromArgs;
+use bytesize::ByteSize;
 use color_eyre::Result;
 use rand::{RngCore, SeedableRng};
 
@@ -15,7 +17,7 @@ fn parse_duration(s: &str) -> Result<Duration, String> {
 #[derive(FromArgs)]
 struct Args {
     /// target address and port, delimited by a colon
-    #[argh(option, default = "String::from(\"10.0.0.10:5560\")")]
+    #[argh(positional, default = "String::from(\"10.0.0.10:5560\")")]
     address: String,
     /// the targeted overall duration
     #[argh(
@@ -25,8 +27,11 @@ struct Args {
     )]
     duration: Duration,
     /// how large each packet should be
-    #[argh(option, default = "1472")]
-    packet_size: usize,
+    #[argh(option, short = 'n', default = "ByteSize::b(1472)")]
+    packet_size: ByteSize,
+    /// approximately how many bytes should be sent per second
+    #[argh(option, short = 'b', default = "ByteSize::kb(100)")]
+    bytes_per_second: ByteSize,
 }
 
 fn main() -> Result<()> {
@@ -34,7 +39,7 @@ fn main() -> Result<()> {
     let args: Args = argh::from_env();
 
     let mut rng = rand_xoshiro::Xoroshiro128Plus::from_entropy();
-    let mut buf = vec![0; args.packet_size];
+    let mut buf = vec![0; args.packet_size.0 as usize];
 
     let socket = UdpSocket::bind("0.0.0.0:0")?;
     socket.connect(args.address)?;
@@ -54,10 +59,36 @@ fn main() -> Result<()> {
     rng.fill_bytes(&mut buf);
     buf[0] = 0;
 
-    let time_start = Instant::now();
+    // Perform throughput measurements.
     let mut bytes_transmitted = 0;
-    while time_start.elapsed() < args.duration {
-        bytes_transmitted += socket.send(&buf)? as u64;
+    let mut sends = VecDeque::new();
+    let mut total_send_duration = Duration::ZERO;
+    let mut total_sends = 0;
+    let time_start = Instant::now();
+    loop {
+        let transmit_start = Instant::now();
+        let n = socket.send(&buf)? as u64;
+        let now = Instant::now();
+        bytes_transmitted += n;
+        total_send_duration += now.duration_since(transmit_start);
+        total_sends += 1;
+
+        sends.push_back((transmit_start, n, now));
+        while let Some(&(transmit_start, _, _)) = sends.front() {
+            if now.duration_since(transmit_start) > Duration::from_secs(1) {
+                sends.pop_front();
+            } else {
+                break;
+            }
+        }
+        let time_per_send = total_send_duration / total_sends;
+        let target_sends_per_second = args.bytes_per_second.0 / args.packet_size.0;
+        let sleep_time = (Duration::from_secs(1) / (target_sends_per_second as u32))
+            .saturating_sub(time_per_send);
+        if (now + sleep_time).duration_since(time_start) >= args.duration {
+            break;
+        }
+        spin_sleep::sleep(sleep_time);
     }
     let time_end = Instant::now();
 
@@ -65,6 +96,7 @@ fn main() -> Result<()> {
         // Repeat until actually sent.
     }
 
+    println!("Waiting for bytes-received response...");
     let n = socket.recv(&mut buf)?;
     let bytes_received = u64::from_le_bytes(buf[..n].try_into()?);
 
@@ -73,11 +105,13 @@ fn main() -> Result<()> {
         "Sent: {}, Received: {}, Loss: {:.1}%",
         bytesize::to_string(bytes_transmitted, true),
         bytesize::to_string(bytes_received, true),
-        loss * 100.0
+        loss * 100.0,
     );
+    let duration = time_end.duration_since(time_start);
     println!(
-        "Throughput: {}",
-        format_throughput(time_end.duration_since(time_start), bytes_received)
+        "Sending Throughput: {}, Receiving Throughput: {}",
+        format_throughput(duration, bytes_transmitted),
+        format_throughput(duration, bytes_received),
     );
 
     Ok(())
