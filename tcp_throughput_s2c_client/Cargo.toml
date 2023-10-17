@@ -12,3 +12,9 @@ color-eyre = "0.6.2"
 humantime = "2.1.0"
 rand = "0.8.5"
 rand_xoshiro = "0.6.0"
+socket2 = "0.5.4"
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+panic = "abort"
