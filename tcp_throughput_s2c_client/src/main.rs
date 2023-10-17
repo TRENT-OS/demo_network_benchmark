@@ -17,7 +17,7 @@ fn parse_duration(s: &str) -> Result<Duration, String> {
 #[derive(FromArgs)]
 struct Args {
     /// target address and port, delimited by a colon
-    #[argh(option, default = "String::from(\"10.0.0.10:5560\")")]
+    #[argh(positional, default = "String::from(\"10.0.0.10:5560\")")]
     address: String,
     /// the targeted per-transmission duration
     #[argh(
