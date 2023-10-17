@@ -105,5 +105,5 @@ fn format_throughput(elapsed: Duration, bytes: u64) -> String {
     let bits_per_second = (((bytes * 8) as f64) / elapsed.as_secs_f64()) as u64;
     let mut s = bytesize::to_string(bits_per_second, false);
     s.pop();
-    format!("{}b/s", s)
+    format!("{}bit/s", s)
 }
