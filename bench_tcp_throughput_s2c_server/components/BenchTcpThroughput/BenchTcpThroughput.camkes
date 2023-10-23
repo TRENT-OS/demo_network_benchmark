@@ -1,0 +1,17 @@
+/*
+ * Bench TCP Throughput
+ *
+ * Copyright (C) 2023, HENSOLDT Cyber GmbH
+ */
+
+#pragma once
+
+#include "if_OS_Socket.camkes"
+
+component BenchTcpThroughput {
+    control;
+
+    //--------------------------------------------------------------------------
+    // Networking
+    IF_OS_SOCKET_USE(networkStack)
+}

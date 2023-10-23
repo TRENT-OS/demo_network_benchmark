@@ -1,0 +1,15 @@
+/*
+ * Nitrogen6_SoloX configuration
+ *
+ * Copyright (C) 2023, HENSOLDT Cyber GmbH
+ */
+
+#pragma once
+
+#include "NIC_iMX6/NIC_iMX6.camkes"
+
+#define BENCH_UDP_THROUGHPUT_NIC_INSTANCE(...) \
+    NIC_IMX6_INSTANCE(__VA_ARGS__)
+
+#define BENCH_UDP_THROUGHPUT_NIC_CONFIG(_nic_) \
+    NIC_IMX6_MEMORY_CONFIG(_nic_) \

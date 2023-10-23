@@ -1,0 +1,79 @@
+/*
+ * Main CAmkES file of the UDP throughput benchmark
+ *
+ * Copyright (C) 2021, HENSOLDT Cyber GmbH
+ */
+
+import <std_connector.camkes>;
+
+#include "system_config.h"
+
+#include "components/BenchUdpThroughput/BenchUdpThroughput.camkes"
+
+#include "NetworkStack_PicoTcp/camkes/NetworkStack_PicoTcp.camkes"
+NetworkStack_PicoTcp_COMPONENT_DEFINE(
+    NwStack,
+    NIC_DRIVER_RINGBUFFER_SIZE,
+    NetworkStack_PicoTcp_NO_ADDITIONAL_INTERFACES)
+
+#include "EntropySource/camkes/EntropySource.camkes"
+EntropySource_COMPONENT_DEFINE(EntropySource)
+
+#include "TimeServer/camkes/TimeServer.camkes"
+TimeServer_COMPONENT_DEFINE(TimeServer)
+
+// Include the platform specific components and macros.
+#include "plat_nic.camkes"
+
+assembly {
+    composition {
+
+        //----------------------------------------------------------------------
+        // NIC Drivers
+        //----------------------------------------------------------------------
+        BENCH_UDP_THROUGHPUT_NIC_INSTANCE(nwDriver)
+
+        //----------------------------------------------------------------------
+        // TimeServer
+        //----------------------------------------------------------------------
+        component TimeServer timeServer;
+
+        TimeServer_INSTANCE_CONNECT_CLIENTS(
+            timeServer,
+            nwStack.timeServer_rpc, nwStack.timeServer_notify
+        )
+
+        //----------------------------------------------------------------------
+        // Network stack
+        //----------------------------------------------------------------------
+        component NwStack nwStack;
+
+        NetworkStack_PicoTcp_INSTANCE_CONNECT(
+            nwStack,
+            nwDriver
+        )
+
+        //----------------------------------------------------------------------
+        // Bench UDP Throughput
+        //----------------------------------------------------------------------
+        component BenchUdpThroughput benchUdpThroughput;
+
+        NetworkStack_PicoTcp_INSTANCE_CONNECT_CLIENTS(
+            nwStack,
+            benchUdpThroughput, networkStack)
+    }
+    configuration {
+        TimeServer_CLIENT_ASSIGN_BADGES(nwStack.timeServer_rpc)
+        // Platform specific configuration.
+        BENCH_UDP_THROUGHPUT_NIC_CONFIG(nwDriver)
+
+        NetworkStack_PicoTcp_CLIENT_ASSIGN_BADGES(
+            benchUdpThroughput, networkStack
+        )
+
+        NetworkStack_PicoTcp_INSTANCE_CONFIGURE_CLIENTS(
+            nwStack,
+            2
+        )
+    }
+}
