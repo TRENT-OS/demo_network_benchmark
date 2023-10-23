@@ -15,5 +15,10 @@ First build and run the correct TRENTOS component.
 
 Then, run the corresponding benchmark:
 ```sh
+cargo run --release -p tcp_throughput_c2s_client -- 10.0.0.10:5560
+```
+
+For help and additional options, run:
+```sh
 cargo run --release -p tcp_throughput_c2s_client -- --help
 ```

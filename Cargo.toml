@@ -4,3 +4,15 @@ members = [
   "tcp_throughput_s2c_client",
   "udp_throughput_c2s_client",
 ]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.72"
+
+[profile.release]
+codegen-units = 1
+debug = true
+lto = "fat"
+panic = "abort"
