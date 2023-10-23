@@ -1,12 +1,11 @@
 use std::{
-    io::Write,
+    io::Read,
     net::ToSocketAddrs,
     time::{Duration, Instant},
 };
 
 use argh::FromArgs;
 use color_eyre::{eyre::eyre, Result};
-use rand::{RngCore, SeedableRng};
 use socket2::{Domain, Protocol, Socket, Type};
 
 fn parse_duration(s: &str) -> Result<Duration, String> {
@@ -17,7 +16,7 @@ fn parse_duration(s: &str) -> Result<Duration, String> {
 #[derive(FromArgs)]
 struct Args {
     /// target address and port, delimited by a colon
-    #[argh(positional, default = "String::from(\"10.0.0.10:5560\")")]
+    #[argh(positional)]
     address: String,
     /// the targeted per-transmission duration
     #[argh(
@@ -42,8 +41,6 @@ fn main() -> Result<()> {
     let mut total_overall_duration = Duration::ZERO;
     let mut total_pure_duration = Duration::ZERO;
 
-    let mut rng = rand_xoshiro::Xoroshiro128Plus::from_entropy();
-
     let address = args
         .address
         .to_socket_addrs()?
@@ -51,12 +48,11 @@ fn main() -> Result<()> {
         .ok_or_else(|| eyre!("Could not resolve address"))?
         .into();
 
+    let mut buf = vec![0; args.block_size];
+
     println!("Sample | Overall Throughput | Pure Throughput");
     println!("-------|--------------------|----------------");
     for i in 0..args.sample_size {
-        let mut write_buf = vec![0; args.block_size];
-        rng.fill_bytes(&mut write_buf);
-
         let time_connect = Instant::now();
         let mut socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
         socket.connect(&address)?;
@@ -66,12 +62,14 @@ fn main() -> Result<()> {
         while time_send.elapsed() < args.duration {
             let mut i = 0;
             while i < 10 {
-                match socket.write(&write_buf) {
+                match socket.read(&mut buf) {
                     Ok(n) => {
                         bytes_transmitted += n as u64;
                         i += 1;
                     }
-                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::hint::spin_loop();
+                    }
                     Err(err) => return Err(err.into()),
                 };
             }

@@ -28,7 +28,7 @@ fn parse_rate(full: &str) -> Result<u64, String> {
 #[derive(FromArgs)]
 struct Args {
     /// target address and port, delimited by a colon
-    #[argh(positional, default = "String::from(\"10.0.0.10:5560\")")]
+    #[argh(positional)]
     address: String,
     /// the targeted overall duration
     #[argh(

@@ -1,5 +1,5 @@
 [package]
-name = "udp_benchmark_client"
+name = "udp_throughput_c2s_client"
 version = "0.1.0"
 edition = "2021"
 

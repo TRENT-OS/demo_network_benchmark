@@ -1,0 +1,6 @@
+[workspace]
+members = [
+  "tcp_throughput_c2s_client",
+  "tcp_throughput_s2c_client",
+  "udp_throughput_c2s_client",
+]
